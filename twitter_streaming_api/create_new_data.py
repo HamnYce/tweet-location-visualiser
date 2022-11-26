@@ -6,7 +6,7 @@ from time import sleep
 fake = Faker()
 # pd.read_csv('types.csv', index_col=0).drop(columns=[
 #    'lang', 'year', 'links', 'types', 'place_id', 'level']).to_csv('types3.csv')
-df = pd.read_csv('types3.csv', index_col=0)
+df = pd.read_csv('../datasets/types3.csv', index_col=0)
 smal_lat, big_lat = df.loc[:, 'lat'].min(), df.loc[:, 'lat'].max()
 smal_lon, big_lon = df.loc[:, 'lng'].min(), df.loc[:, 'lng'].max()
 
@@ -38,4 +38,4 @@ for _ in range(100):
         gov_area=('some_gov', random.choice(unique_areas)))
     inter_df.loc[len(inter_df.index)] = row
 
-print(inter_df)
+inter_df.to_csv('../datasets/inter_types.csv')
