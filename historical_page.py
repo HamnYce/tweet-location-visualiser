@@ -1,26 +1,20 @@
-import random
+import datetime
 
 import dash
 import dash_bootstrap_components as dbc
-from dash import Input, Output, State, dcc, html
-import numpy as np
-import pandas as pd
-import plotly
 import plotly.express as px
 import plotly.graph_objects as go
 import sqlalchemy
-import datetime
+from dash import Input, Output, State, dcc, html
+
 token = open('.mapbox_token').read()
 px.set_mapbox_access_token(token)
-scatter_order_lis = [0, 23, 1, 22, 2, 21, 3, 20, 4, 19, 5,
-                     18, 6, 17, 7, 16, 8, 15, 9, 14, 10, 13, 11, 12]
 
 engine = sqlalchemy.create_engine(
     'postgresql+pg8000://postgres:Megaman1234@localhost:5433/Twitter_Streaming_DB'
 )
 app = dash.Dash(__name__, external_stylesheets=[dbc.themes.DARKLY],
                 assets_folder='assets/')
-
 
 with engine.connect() as conn:
     # res = conn.execute(sqlalchemy.text(
@@ -40,76 +34,86 @@ with engine.connect() as conn:
     lng = [i[1] for i in rows]
 
 
-def get_data(date_begin, date_end, hour_begin, hour_end, gov, district):
-    query = '\
-SELECT t1.lat,t1.lng,t1.text,t1.hour \
-FROM public."Table_2018" as t1 \
-WHERE \
-t1.date BETWEEN \'{0}\'::date AND \'{1}\'::date \
-AND t1.hour BETWEEN {2} AND {3} \
-{4} \
-{5} \
-UNION ALL \
-SELECT t2.lat,t2.lng,t2.text,t2.hour \
-FROM public."Table_2019" as t2 \
-WHERE \
-t2.date BETWEEN \'{0}\'::date AND \'{1}\'::date \
-AND t2.hour BETWEEN {2} AND {3} \
-{6} \
-{7} \
-LIMIT 500 \
-;'
-    gov_query_1 = ''
-    gov_query_2 = ''
-    district_query_1 = ''
-    district_query_2 = ''
-    if gov:
-        gov_query_1 = 'AND t1.governorate = \'{}\''.format(gov)
-        gov_query_2 = 'AND t2.governorate = \'{}\''.format(gov)
-    if district:
-        district_query_1 = 'AND t1.districts = \'{}\''.format(district)
-        district_query_2 = 'AND t2.districts = \'{}\''.format(district)
-    query = query.format(date_begin, date_end, hour_begin, hour_end,
-                         gov_query_1, district_query_1,
-                         gov_query_2, district_query_2)
-    stmt = sqlalchemy.text(query)
+# TODO: convert lists to tuples where appropriate
+# TODO: move SQL stuff to another python file
 
+
+def create_sql_data_query(table_name, table_alias, cols,
+                          date_begin, date_end, hour_begin, hour_end, gov, district):
+    columns = ['{}.{}'.format(table_alias, col) for col in cols]
+    columns = ','.join(columns)
+    query = "\
+SELECT {columns} \
+FROM public.\"{table_name}\" as {alias} \
+WHERE \
+{alias}.date BETWEEN '{date_begin}'::date AND '{date_end}'::date \
+AND {alias}.hour BETWEEN {hour_begin} AND {hour_end} \
+AND {alias}.text IS NOT NULL \
+{area_condition} \
+"
+    area_condition = ''
+
+    if district:
+        area_condition = "AND {}.districts = '{}'".format(
+            table_alias, district)
+    elif gov:
+        area_condition = "AND {}.governorate = '{}'".format(table_alias, gov)
+
+    query = query.format(
+        table_name=table_name, alias=table_alias, columns=columns,
+        date_begin=date_begin, date_end=date_end, hour_begin=hour_begin,
+        hour_end=hour_end, area_condition=area_condition
+    )
+    return query
+
+
+def create_sql_count_query(col, date_begin, date_end, hour_begin, hour_end, gov, district):
+    tables = [['Table_2018', 't1'], ['Table_2019', 't2']]
+    columns = [col]
+    querys = [create_sql_data_query(table[0], table[1], columns,
+                                    date_begin, date_end, hour_begin,
+                                    hour_end, gov, district)
+              for table in tables]
+    total_query = ' UNION ALL '.join(querys)
+    query = "\
+SELECT sub.{col}, COUNT(*) as c \
+FROM ( \
+{nested_query} \
+) as sub \
+GROUP BY sub.{col} \
+ORDER BY c DESC \
+LIMIT 10 \
+;"
+    return query.format(col=col, nested_query=total_query)
+
+
+def get_data(date_begin, date_end, hour_begin, hour_end, gov, district):
+    tables = (('Table_2018', 't1'), ('Table_2019', 't2'))
+    cols = ('lat', 'lng', 'text', 'hour', 'date')
+    querys = [create_sql_data_query(table[0], table[1], cols,
+                                    date_begin, date_end, hour_begin, hour_end,
+                                    gov, district)
+              for table in tables]
+    total_query = ' UNION ALL '.join(querys)
+    total_query += ' LIMIT 100;'
+
+    stmt = sqlalchemy.text(total_query)
+
+    # TODO: efficient way of getting columns as list
     with engine.connect() as conn:
-        print('        execution Begin!')
         res = conn.execute(stmt)
         rows = res.all()
-        print('        execution complete!')
         lat = [row[0] for row in rows]
         lng = [row[1] for row in rows]
         text = [row[2] for row in rows]
         hour = [row[3] for row in rows]
-    return lat, lng, text, hour
+        date = [row[4] for row in rows]
+    return lat, lng, text, hour, date
 
 
 def get_gov_counts(date_begin, date_end, hour_begin, hour_end, gov):
-    query = '\
-SELECT sub.governorate, COUNT(*) \
-FROM (SELECT t1.governorate \
-FROM public."Table_2018" as t1 \
-WHERE t1.date BETWEEN \'{0}\'::date AND \'{1}\'::date \
-AND t1.hour BETWEEN {2} AND {3} \
-{4} \
-UNION ALL \
-SELECT t2.governorate \
-FROM public."Table_2019" as t2 \
-WHERE t2.date BETWEEN \'{0}\'::date AND \'{1}\'::date \
-AND t2.hour BETWEEN {2} AND {3} \
-{5} \
-) as sub \
-GROUP BY sub.governorate \
-;'
-    gov_query_1 = ''
-    gov_query_2 = ''
-    if gov:
-        gov_query_1 = 'AND t1.governorate = \'{}\''.format(gov)
-        gov_query_2 = 'AND t2.governorate = \'{}\''.format(gov)
-    query = query.format(date_begin, date_end, hour_begin,
-                         hour_end, gov_query_1, gov_query_2)
+    query = create_sql_count_query(
+        'governorate', date_begin, date_end, hour_begin, hour_end, gov, None)
     stmt = sqlalchemy.text(query)
     with engine.connect() as conn:
         res = conn.execute(stmt)
@@ -120,39 +124,8 @@ GROUP BY sub.governorate \
 
 
 def get_district_counts(date_begin, date_end, hour_begin, hour_end, gov, district):
-    query = '\
-SELECT sub.districts, COUNT(*) \
-FROM (SELECT t1.districts \
-FROM public."Table_2018" as t1 \
-WHERE t1.date BETWEEN \'{0}\'::date AND \'{1}\'::date \
-AND t1.hour BETWEEN {2} AND {3} \
-{4} \
-{5} \
-UNION ALL \
-SELECT t2.districts \
-FROM public."Table_2019" as t2 \
-WHERE t2.date BETWEEN \'{0}\'::date AND \'{1}\'::date \
-AND t2.hour BETWEEN {2} AND {3} \
-{6} \
-{7} \
-) as sub \
-GROUP BY sub.districts \
-LIMIT 10 \
-;'
-    gov_query_1 = ''
-    gov_query_2 = ''
-    district_query_1 = ''
-    district_query_2 = ''
-    if gov:
-        gov_query_1 = 'AND t1.governorate = \'{}\''.format(gov)
-        gov_query_2 = 'AND t2.governorate = \'{}\''.format(gov)
-    if district:
-        district_query_1 = 'AND t1.districts = \'{}\''.format(district)
-        district_query_2 = 'AND t2.districts = \'{}\''.format(district)
-    query = query.format(
-        date_begin, date_end, hour_begin, hour_end,
-        gov_query_1, district_query_1,
-        gov_query_2, district_query_2
+    query = create_sql_count_query(
+        'districts', date_begin, date_end, hour_begin, hour_end, gov, district
     )
     stmt = sqlalchemy.text(query)
     with engine.connect() as conn:
@@ -164,38 +137,8 @@ LIMIT 10 \
 
 
 def get_hour_counts(date_begin, date_end, hour_begin, hour_end, gov, district):
-    query = '\
-SELECT sub.hour, COUNT(*) \
-FROM (SELECT t1.hour \
-FROM public."Table_2018" as t1 \
-WHERE t1.date BETWEEN \'{0}\'::date AND \'{1}\'::date \
-AND t1.hour BETWEEN {2} AND {3} \
-{4} \
-{5} \
-UNION ALL \
-SELECT t2.hour \
-FROM public."Table_2019" as t2 \
-WHERE t2.date BETWEEN \'{0}\'::date AND \'{1}\'::date \
-AND t2.hour BETWEEN {2} AND {3}) as sub \
-{6} \
-{7} \
-GROUP BY sub.hour \
-;'
-    gov_query_1 = ''
-    gov_query_2 = ''
-    district_query_1 = ''
-    district_query_2 = ''
-    if gov:
-        gov_query_1 = 'AND t1.governorate = \'{}\''.format(gov)
-        gov_query_2 = 'AND t2.governorate = \'{}\''.format(gov)
-    if district:
-        district_query_1 = 'AND t1.districts = \'{}\''.format(district)
-        district_query_2 = 'AND t2.districts = \'{}\''.format(district)
-    # TODO: change the parameter names to match the arguement in callback
-    query = query.format(
-        date_begin, date_end, hour_begin,
-        hour_end, gov_query_1, district_query_1,
-        gov_query_2, district_query_2
+    query = create_sql_count_query(
+        'hour', date_begin, date_end, hour_begin, hour_end, gov, district
     )
     stmt = sqlalchemy.text(query)
     with engine.connect() as conn:
@@ -371,6 +314,7 @@ def config_panel():
         ],
     )
 
+
 # NOTE: Map Boxes
 
 
@@ -408,15 +352,18 @@ def update_mapbox_layout(fig):
 
 
 def create_scatter_fig():
-    fig = px.scatter_mapbox(lat=[1, 2, 3, 4], lon=[
-                            1, 2, 3, 4], mapbox_style='open-street-map')
+    fig = px.scatter_mapbox(
+        lat=[1, 1, 1, 1],
+        lon=[1, 1, 1, 1],
+        mapbox_style='dark'
+    )
     update_mapbox_layout(fig)
     return fig
 
 
 def create_density_fig():
     fig = px.density_mapbox(lat=[1, 2, 3, 4], lon=[
-                            1, 2, 3, 4], mapbox_style='open-street-map')
+        1, 2, 3, 4], mapbox_style='open-street-map')
     update_mapbox_layout(fig)
     return fig
 
@@ -429,7 +376,7 @@ def scatter_map_graph():
             borderTop='0',
             height='100%'
         ),
-        id='scatter-mapbox-graph'
+        id='scatter-mapbox-graph',
     )
 
 
@@ -468,7 +415,8 @@ def maps_panel():
                         style=dict(height='100%'),
                         children=[
                             scatter_map_graph()
-                        ]
+                        ],
+                        id='scatter-map-col',
                     ),
                     dbc.Col(
                         style=dict(
@@ -486,15 +434,18 @@ def maps_panel():
         style=dict(height='100%')
     )
 
+
 # NOTE: top districts of # of tweets bar chart
+
+# TODO: fix hover data of both bar charts
 
 
 def create_district_fig(names, count, color):
     return px.bar(
         x=names,
         y=count,
-        color=color,
-        title='Top 10 Districts'
+        title='Top 10 Districts',
+        color_discrete_sequence=['#ffd']
     ).update_layout(
         plot_bgcolor='rgba(0,0,0,0)',
         paper_bgcolor='rgba(0,0,0,0)',
@@ -502,12 +453,16 @@ def create_district_fig(names, count, color):
         hovermode='x',
         legend=dict(bgcolor='rgba(0,0,0,0)'),
         font=dict(color='#fff'),
-        title=dict(x=0.5, y=0.9),
+        title=dict(x=0.5, y=0.9, font=dict(size=30)),
         showlegend=False
     ).update_xaxes(
-        title=dict(text='Districts')
+        title=dict(
+            text='Districts',
+            font=dict(size=20),
+        ),
+        tickfont=dict(size=20),
     ).update_yaxes(
-        title=dict(text='# of Tweets')
+        title=dict(text='# of Tweets', font=dict(size=20))
     )
 
 
@@ -533,6 +488,7 @@ def district_bar_panel():
         ]
     )
 
+
 # NOTE: # of tweets per hour bar chart
 
 
@@ -556,11 +512,16 @@ def create_hour_bar_fig(x, y, color):
             # this sets the color scale
             colorscale='inferno',
             colorbar=dict(title=dict(text='hour')),
-        )
+        ),
+        title=dict(x=0.5, y=0.9, font=dict(size=30)),
     ).update_xaxes(
-        title=dict(text='Hour')
+        title=dict(
+            text='Hour',
+            font=dict(size=20)
+        ),
+        tickfont=dict(size=20),
     ).update_yaxes(
-        title=dict(text='# of Tweets')
+        title=dict(text='# of Tweets', font=dict(size=20))
     )
 
 
@@ -586,6 +547,7 @@ def hour_bar_panel():
         ]
     )
 
+
 # NOTE: # of tweet in each gov pie chart
 
 
@@ -593,13 +555,17 @@ def create_gov_pie_fig(names, values):
     return px.pie(
         names=names,
         values=values,
+        color_discrete_sequence=px.colors.qualitative.Set3,
+        title='Percentage of Tweets Per Governorate'
     ).update_layout(
         dict(
             plot_bgcolor='rgba(0,0,0,0)',
             paper_bgcolor='rgba(0,0,0,0)',
-            margin=dict(l=0, r=0, b=0, t=0),
-            legend=dict(bgcolor='rgba(0,0,0,0)'),
-            font=dict(color='#fff'),
+            margin=dict(l=0, r=0, b=0, t=55),
+            legend=dict(
+                bgcolor='rgba(0,0,0,0)',
+                font=dict(size=20)),
+            font=dict(color='#fff', size=20),
         )
     )
 
@@ -622,22 +588,25 @@ def gov_pie_chart_panel():
         ],
     )
 
+
 # NOTE: Datatable of tweets
 
 
 def create_tweets_datatable(data):
     return dash.dash_table.DataTable(
-        columns=[{'name': 'tweet', 'id': 'tweet'}],
+        columns=[{'name': 'Tweets', 'id': 'tweets'}],
         data=data,
         style_header=dict(
-            backgroundColor='var(--bs-body-bg)',
-            color='var(--bs-body-color)',
-            textAlign='left'
-        ),
-        style_data=dict(
-            backgroundColor='var(--bs-body-bg)',
+            backgroundColor='#111',
             color='var(--bs-body-color)',
             textAlign='left',
+            fontSize=20
+        ),
+        style_data=dict(
+            backgroundColor='#111',
+            color='var(--bs-body-color)',
+            textAlign='left',
+            fontSize=16
         ),
         style_table=dict(
             height='100%',
@@ -662,7 +631,7 @@ def tweet_sample_panel():
     )
 
 
-@ app.callback(
+@app.callback(
     Output('district-dropdown', 'options'),
 
     Input('gov-dropdown', 'value'),
@@ -695,7 +664,6 @@ def change_tab(tab_id, graphs_row):
 
 @app.callback(
     Output('scatter-mapbox-graph', 'figure'),  # scatter fig
-    Output('density-mapbox-graph', 'figure'),  # density fig
     Output('district-bar-graph', 'figure'),  # district graph
     Output('hour-bar-graph', 'figure'),  # hour graph
     Output('gov-pie-graph', 'figure'),  # gov pie chart
@@ -709,46 +677,26 @@ def change_tab(tab_id, graphs_row):
     State('hour-slider', 'value'),  # hour values
     State('gov-dropdown', 'value'),  # governorante
     State('district-dropdown', 'value'),  # district
-
-    State('scatter-mapbox-graph', 'figure'),
-    State('district-bar-graph', 'figure'),  # district graph
-    State('hour-bar-graph', 'figure'),  # hour graph
-    State('gov-pie-graph', 'figure'),
 )
-def apply_filter_to_graphs(apply_click,
-                           date_start, date_end, hours, gov, district,
-                           scatter_mapbox, district_bar, hour_bar, gov_pie):
-
-    scatter_fig = go.Figure()
-    update_mapbox_layout(scatter_fig)
-    density_fig = go.Figure()
-    update_mapbox_layout(density_fig)
-    for i in range(hours[0], hours[1] + 1):
-        lat, lng, text, _ = get_data(
-            date_start, date_end, i, i, gov, district)
-        scatter_fig.add_trace(
-            go.Scattermapbox(
-                hovertext=text,
-                lat=lat,
-                lon=lng,
-                marker=dict(
-                    color=[i for _ in range(len(lat))],
-                    coloraxis='coloraxis',
-                    allowoverlap=True,
-                    autocolorscale=True,
-                ),
-                name=str(i),
-                showlegend=False,
-            )
+def apply_filter_to_graphs(_click, date_start, date_end, hours, gov, district):
+    scatter_fig = go.Figure().update_layout(
+        dict(
+            paper_bgcolor='rgba(0,0,0,0)',
+            plot_bgcolor='rgba(0,0,0,0)',
+            xaxis=dict(
+                showgrid=False,
+                # showline=False,
+                showticklabels=False,
+                visible=False,
+            ),
+            yaxis=dict(
+                showgrid=False,
+                # showline=False,
+                showticklabels=False,
+                visible=False,
+            ),
         )
-        density_fig.add_trace(
-            go.Densitymapbox(
-                lat=lat,
-                lon=lng,
-                name='{}'.format(i),
-                showlegend=False,
-            )
-        )
+    )
 
     hour_order, hours_count = get_hour_counts(
         date_start, date_end, hours[0], hours[1], gov, district)
@@ -763,29 +711,104 @@ def apply_filter_to_graphs(apply_click,
     district_fig = create_district_fig(
         district_names, district_count, district_names)
 
-    _, _, text, _ = get_data(
+    _, _, text, hour, _ = get_data(
         date_start, date_end, hours[0], hours[1], gov, district)
-    tweets = [{'tweet': tex} for tex in text]
+    tweets = [{'tweets': tex} for tex in text]
 
-    return scatter_fig, density_fig, district_fig, hour_fig, pie_fig, tweets
+    return scatter_fig, district_fig, hour_fig, pie_fig, tweets
 
 
-# @app.callback(
-#     Output(),  # daterangepicker
-#     Output(),  # hour
-#     Output(),  # governornate
-#     Output(),  # district
+@app.callback(
+    Output('scatter-map-col', 'children'),
+    Output('density-mapbox-graph', 'figure'),  # density fig
 
-#     Input(),  # clear all button
-# )
-# def clear_config():
-#     pass
+    Input('scatter-mapbox-graph', 'figure'),
+
+    State('date-picker', 'start_date'),  # date begin
+    State('date-picker', 'end_date'),  # date end
+    State('hour-slider', 'value'),  # hour values
+    State('gov-dropdown', 'value'),  # governorante
+    State('district-dropdown', 'value'),  # district
+
+)
+def update_graph(fig, date_start, date_end, hours, gov, district):
+    scatter_fig = go.Figure()
+    density_fig = go.Figure()
+
+    update_mapbox_layout(scatter_fig)
+    update_mapbox_layout(density_fig)
+
+    for i in range(24):
+        # TODO: add date to place in the hover template of the point
+        lat, lng = [-1], [-1]
+        customtext = None
+        if hours[0] <= i <= hours[1]:
+            lat, lng, text, _, date = get_data(
+                date_start, date_end, i, i, gov, district)
+            customtext = ['Date: {}<br>Tweet:{}'.format(
+                da, tex) for da, tex in zip(date, text)]
+
+            density_fig.add_trace(
+                go.Densitymapbox(
+                    lat=lat,
+                    lon=lng,
+                    name=str(i),
+                    showlegend=False,
+                )
+            )
+
+        scatter_fig.add_trace(
+            go.Scattermapbox(
+                text=customtext,
+                hovertemplate='%{text}',
+                lat=lat,
+                lon=lng,
+                marker=dict(
+                    color=[i for _ in range(len(lat))],
+                    coloraxis='coloraxis',
+                    opacity=0.7,
+                    size=14
+                ),
+                name=str(i),
+                showlegend=False,
+                uid=1
+            )
+        )
+
+    graph = dcc.Graph(
+        figure=scatter_fig,
+        style=dict(
+            border='1px solid var(--bs-body-color)',
+            borderTop='0',
+            height='100%'
+        ),
+        id='scatter-mapbox-graph',
+    )
+    return graph, density_fig
+
+
+@app.callback(
+    Output('date-picker', 'start_date'),  # date begin
+    Output('date-picker', 'end_date'),  # date end
+    Output('hour-slider', 'value'),  # hour values
+    Output('gov-dropdown', 'value'),  # governorante
+    Output('district-dropdown', 'value'),  # district
+    Output('clear-button', 'n_clicks'),  # clear all button
+
+    Input('clear-button', 'n_clicks'),  # clear all button
+)
+def clear_config(n_clicks):
+    return get_min_date(), get_max_date(), [0, 23], None, None, 0
+
+
 app.layout = dbc.Container(
     # TODO: set background to the KSIR png
     fluid=True,
     style=dict(
         height='100vh - 20px',
         width='100vw - 20px',
+        backgroundImage='url(assets/imgs/background.png)',
+        backgroundSize='100% 100%'
     ),
     children=[
         dbc.Row(
@@ -809,8 +832,6 @@ app.layout = dbc.Container(
         )
     ]
 
-
 )
-
 
 app.run_server(port=3001, debug=True)
