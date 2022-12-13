@@ -1,11 +1,10 @@
-from random import randint
-
 import dash
 import dash_bootstrap_components as dbc
 import pandas as pd
 import plotly.express as px
 import plotly.graph_objects as go
 from dash import callback, Input, Output, State, dcc, html
+
 import app_modules.sql_library as sql_library
 
 dash.register_page(__name__, path='/')
@@ -14,21 +13,14 @@ token = open('.mapbox_token').read()
 px.set_mapbox_access_token(token)
 
 
-# TODO: refactor to dbc.Card (card_header, card_body)
-
-
 def data_container(title, content):
     return dbc.Container(
         fluid=True,
         children=[
             dbc.Card(
                 children=[
-                    dbc.CardHeader(
-                        title,
-                    ),
-                    dbc.CardBody(
-                        content,
-                    )
+                    dbc.CardHeader(children=title),
+                    dbc.CardBody(children=content)
                 ]
             )
         ],
@@ -36,35 +28,15 @@ def data_container(title, content):
 
 
 def total_data_row():
-    return dbc.Row(
-        children=[
-            dbc.Col(
-                id='total-data-col'
-            )
-        ]
-    )
+    return dbc.Row(children=dbc.Col(id='total-data-col'))
 
 
 def total_user_row():
-    return dbc.Row(
-        children=[
-            dbc.Col(
-                id='total-user-col'
-            )
-        ]
-    )
+    return dbc.Row(children=dbc.Col(id='total-user-col'))
 
 
 def top_districts_row():
-    return dbc.Row(
-        children=[
-            dbc.Col(
-                children=[
-                ],
-                id='top-districts-col'
-            )
-        ]
-    )
+    return dbc.Row(children=dbc.Col(id='top-districts-col'))
 
 
 def overview_panel():
@@ -72,19 +44,17 @@ def overview_panel():
         xl=3,
         sm=12,
         class_name='p-2',
-        style=dict(
-            height='100%',
-        ),
+        style=dict(height='100%'),
         children=[
             dbc.Container(
                 fluid=True,
                 class_name='p-2',
                 style=dict(
                     border='1px solid white',
-                    height='100%',
+                    height='100%'
                 ),
                 children=[
-                    html.H3('Overview', style=dict(textAlign='center')),
+                    html.H3('Overview', style=dict(textAlign='center'), ),
                     total_data_row(),
                     total_user_row(),
                     top_districts_row()
@@ -96,16 +66,13 @@ def overview_panel():
 
 def create_tabs():
     return dbc.Tabs(
-        style=dict(
-            border='1px solid white',
-            borderBottom='0'
-        ),
+        id='map-tabs',
+        style=dict(border='1px solid white'),
+        active_tab='scatter-tab',
         children=[
             dbc.Tab(label='Scatter Map', tab_id='scatter-tab'),
             dbc.Tab(label='Density Map', tab_id='density-tab')
         ],
-        id='map-tabs',
-        active_tab='scatter-tab'
     )
 
 
@@ -113,8 +80,8 @@ def update_mapbox_layout(fig):
     return fig.update_layout(
         mapbox=dict(
             style='dark',
-            center=dict(lat=29.311182, lon=47.993202),
-            zoom=9,
+            center=dict(lat=29.311172, lon=47.993202),
+            zoom=7,
             accesstoken=token,
         ),
         margin=dict(l=0, r=0, t=0, b=0),
@@ -124,106 +91,56 @@ def update_mapbox_layout(fig):
             colorscale=px.colors.sequential.Viridis_r,
             colorbar=dict(title=dict(text='hour')),
         ),
-        legend=dict(
-
-        )
-    )
-
-
-def create_scatter_map_fig():
-    return px.scatter_mapbox(
-        lat=[1, 2, 3, 4, 5],
-        lon=[1, 2, 3, 4, 5],
-        mapbox_style='open-street-map'
     )
 
 
 def scatter_map_graph():
     return dcc.Graph(
-        figure=update_mapbox_layout(
-            px.scatter_mapbox(lat=[1], lon=[1]),
-        ),
-        style=dict(
-            height='100%',
-            border='1px solid white',
-            borderTop='0'
-        ),
-        id='scatter-map-graph-live'
-    )
-
-
-def create_density_map_fig():
-    return px.density_mapbox(
-        lat=[1, 2, 3, 4, 5],
-        lon=[1, 2, 3, 4, 5],
-        mapbox_style='open-street-map'
+        id='scatter-map-graph-live',
+        style=dict(height='100%', border='1px solid white', borderTop='0'),
+        figure=update_mapbox_layout(px.scatter_mapbox(lat=[1], lon=[1])),
     )
 
 
 def density_map_graph():
     return dcc.Graph(
-        figure=update_mapbox_layout(
-            px.density_mapbox(lat=[1], lon=[1]),
-        ),
-        style=dict(
-            height='100%',
-            border='1px solid white',
-            borderTop='0'
-        ),
-        id='density-map-graph'
+        id='density-map-graph',
+        style=dict(height='100%', border='1px solid white', borderTop='0'),
+        figure=update_mapbox_layout(px.density_mapbox(lat=[1], lon=[1]), ),
     )
 
 
 def maps_panel():
     return dbc.Col(
         class_name='p-2',
-        style=dict(
-            height='100%',
-        ),
+        style=dict(height='100%'),
         children=[
             dbc.Row(
                 style=dict(height='40px'),
                 children=[
-                    dbc.Col(
-                        style=dict(
-                            height='100%',
-                        ),
-                        children=[
-                            create_tabs(),
-                        ]
-                    )
+                    dbc.Col(style=dict(height='100%'), children=create_tabs())
                 ]
             ),
             dbc.Row(
-                style=dict(
-                    height='calc(100% - 40px)',
-                ),
+                id='maps-row',
+                style=dict(height='calc(100% - 40px)'),
                 children=[
                     dbc.Col(
-                        style=dict(
-                            height='100%',
-                        ),
-                        children=[
-                            scatter_map_graph(),
-                        ],
-                        id='scatter-map-col'
+                        id='scatter-map-col',
+                        style=dict(height='100%'),
+                        children=dbc.Spinner(scatter_map_graph()),
                     ),
                     dbc.Col(
-                        style=dict(
-                            height='100%',
-                        ),
-                        children=[
-                            density_map_graph()
-                        ]
+                        style=dict(height='100%'),
+                        children=dbc.Spinner(density_map_graph())
                     )
-                ],
-                id='maps-row'
+                ]
             )
         ]
     )
 
 
-def create_hour_bar_fig(x, y, color):
+def create_hour_bar_fig(x, y):
     return px.bar(
         x=x,
         y=y,
@@ -241,7 +158,7 @@ def create_hour_bar_fig(x, y, color):
         ),
         font=dict(color='#fff'),
         coloraxis=dict(
-            # this sets the color scale
+            # this sets the color
             colorscale=px.colors.sequential.Viridis_r,
             colorbar=dict(title=dict(text='hour')),
         ),
@@ -263,13 +180,12 @@ def create_hour_bar_fig(x, y, color):
 
 def hour_bar_graph():
     return dcc.Graph(
+        id='bar-graph',
         style=dict(height='100%'),
         figure=create_hour_bar_fig(
             [x for x in range(20)],
-            [x * x for x in range(20)],
-            None
-        ),
-        id='bar-graph'
+            [x * x for x in range(20)]
+        )
     )
 
 
@@ -280,10 +196,7 @@ def bar_panel():
             height='100%',
             border='1px solid white'
         ),
-
-        children=[
-            hour_bar_graph()
-        ]
+        children=hour_bar_graph()
     )
 
 
@@ -295,12 +208,11 @@ def bar_panel():
     State('maps-row', 'children'),
 )
 def change_tab(tab_id, graphs_row):
-    if tab_id == 'scatter-tab':
-        graphs_row[0]['props']['style']['display'] = 'block'
-        graphs_row[1]['props']['style']['display'] = 'none'
-    else:
-        graphs_row[0]['props']['style']['display'] = 'none'
-        graphs_row[1]['props']['style']['display'] = 'block'
+    s_tab = tab_id == 'scatter-tab'
+    display_1, display_2 = ('block', 'none') if s_tab else ('none', 'block')
+
+    graphs_row[0]['props']['style']['display'] = display_1
+    graphs_row[1]['props']['style']['display'] = display_2
     return graphs_row
 
 
@@ -314,60 +226,52 @@ def change_tab(tab_id, graphs_row):
 
     Input('interval', 'n_intervals'),
 
-    # State('scatter-map-graph-live', 'figure'),
-    # State('density-map-graph', 'figure'),
-    # State('bar-graph', 'figure')
 )
 def update_data(_interval):
     lat, lng, hour, districts, user_id = sql_library.get_random_sample()
 
-    df = pd.DataFrame({
-        'user_id': user_id,
-        'lat': lat,
-        'lng': lng,
-        'hour': hour,
-        'districts': districts
-    }).dropna()
+    df = pd.DataFrame(dict(
+        user_id=user_id,
+        lat=lat,
+        lng=lng,
+        hour=hour,
+        districts=districts
+    )
+    ).dropna()
 
-    data_amount = df.shape[0]
-    user_amount = df.loc[:, 'user_id'].nunique()
-    total_data_children = data_container(
-        title='Total # of Records', content=data_amount)
-    total_user_children = data_container(
-        title='Total # of Users', content=user_amount)
+    # Overview Info (Total Data, Total Users)
+    total_data_children = data_container(title='Total # of Records',
+                                         content=df.shape[0])
+    total_user_children = data_container(title='Total # of Users',
+                                         content=df.loc[:, 'user_id'].nunique())
 
-    top_districts = df.value_counts(['districts'])
-    names, amounts = top_districts.index[:3], top_districts.values[:3]
-    top_districts_children = [html.H4('Top Districts:')] + [data_container(
-        title=name, content=amount) for name, amount in zip(names, amounts)]
+    # Top District Info
+    top_districts = df.loc[:, 'districts'].value_counts()[:3]
+    names, amounts = top_districts.index, top_districts.values
+    top_districts_children = [html.H4('Top Districts:')]
+    top_districts_children += [data_container(title=name, content=amount)
+                               for name, amount in zip(names, amounts)]
 
-    scatter_map = go.Figure().update_layout(
+    # Emptying Scatter Figure (because dash is weird about scatter_mapbox)
+    empty_scatter_mapbox = go.Figure().update_layout(
         dict(
             paper_bgcolor='rgba(0,0,0,0)',
             plot_bgcolor='rgba(0,0,0,0)',
-            xaxis=dict(
-                showgrid=False,
-                # showline=False,
-                showticklabels=False,
-                visible=False,
-            ),
-            yaxis=dict(
-                showgrid=False,
-                # showline=False,
-                showticklabels=False,
-                visible=False,
-            ),
+            xaxis=dict(showgrid=False, showticklabels=False, visible=False),
+            yaxis=dict(showgrid=False, showticklabels=False, visible=False),
         )
     )
 
-    density_map = px.density_mapbox(
+    # Updating Density Figure
+    density_mapbox = px.density_mapbox(
         data_frame=df,
         lat='lat',
         lon='lng',
     )
 
-    update_mapbox_layout(density_map)
-    density_map.update_layout(
+    update_mapbox_layout(density_mapbox)
+
+    density_mapbox.update_layout(
         dict(
             coloraxis=dict(
                 # this sets the color scale
@@ -376,23 +280,21 @@ def update_data(_interval):
         )
     )
 
-    hours = df.value_counts(['hour'])
+    # hourly bar chart
+    hours = df.loc[:, 'hour'].value_counts()
+    hour_dic = dict(hours)
 
-    hour_names = [hour[0] for hour in hours.index]
+    # to fix barchart xaxis
+    for i in range(24):
+        if i not in hour_dic:
+            hour_dic[i] = 0
 
-    bar_graph = create_hour_bar_fig(
-        hour_names, hours.values, None
-    ).update_traces(
-        dict(
-            width=0.8
-        )
-    )
+    bar_graph = create_hour_bar_fig(hour_dic.keys(), hour_dic.values()
+                                    ).update_traces(dict(width=0.8))
 
-    ret_val = (
-        total_data_children, total_user_children, top_districts_children,
-        scatter_map, density_map, bar_graph
-    )
-    return ret_val
+    # Output variables
+    return (total_data_children, total_user_children, top_districts_children,
+            empty_scatter_mapbox, density_mapbox, bar_graph)
 
 
 @callback(
@@ -404,11 +306,14 @@ def update_map(_scatter_map):
     # TODO: this can be optimised but will
     # depend on how we will be getting samples
     lat, lng, hour, _, _ = sql_library.get_random_sample()
-    df = pd.DataFrame({
-        'lat': lat,
-        'lng': lng,
-        'hour': hour,
-    }).dropna()
+
+    df = pd.DataFrame(
+        dict(
+            lat=lat,
+            lng=lng,
+            hour=hour
+        )
+    ).dropna()
 
     scatter_map = px.scatter_mapbox(
         data_frame=df,
@@ -419,24 +324,25 @@ def update_map(_scatter_map):
     )
     update_mapbox_layout(scatter_map)
 
-    graph = dcc.Graph(
-        figure=scatter_map,
-        style=dict(
-            border='1px solid var(--bs-body-color)',
-            borderTop='0',
-            height='100%'
-        ),
-        id='scatter-map-graph-live',
+    graph = dbc.Spinner(
+        dcc.Graph(
+            figure=scatter_map,
+            style=dict(
+                border='1px solid var(--bs-body-color)',
+                borderTop='0px',
+                height='100%'
+            ),
+            id='scatter-map-graph-live',
+        )
     )
     return graph
 
 
+# NOTE: Current update delay is 20 seconds
 layout = dbc.Container(
     fluid=True,
-    style=dict(
-    ),
     children=[
-        dcc.Interval(id='interval', interval=5000),
+        dcc.Interval(id='interval', interval=20000),
         dbc.Row(
             style=dict(height='100%'),
             children=[
@@ -444,24 +350,14 @@ layout = dbc.Container(
                 dbc.Col(
                     xl=9,
                     sm=12,
-                    style=dict(
-                        height='100%'
-                    ),
+                    style=dict(height='100%'),
                     children=[
                         dbc.Row(
-                            style=dict(
-                            ),
-                            children=[
-                                maps_panel()
-                            ]
+                            children=maps_panel()
                         ),
                         dbc.Row(
                             class_name='p-2',
-                            style=dict(
-                            ),
-                            children=[
-                                bar_panel()
-                            ]
+                            children=bar_panel()
                         )
                     ]
                 ),

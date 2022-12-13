@@ -1,47 +1,47 @@
 import sqlalchemy
 from random import randint
 
+# TODO: Normalise Schema
+#   (This will provide a performance boost for get_districts & get_govs
+#   (This method can also be used to group multiple tweets in the same location
+#   and have a count attribute to represent them and a couple of sample tweets.
+#   In theory this should make displaying the scatter graph not very hard and
+#   we might be able to transform it into a bubble graph which can give more
+#   information)
+
 engine = sqlalchemy.create_engine(
     'postgresql+pg8000://postgres:Megaman1234@localhost:5433/Twitter_Streaming_DB'
 )
 
 
 def get_distinct_govs():
+    query = 'SELECT DISTINCT governorate FROM public."Table_2018";'
+
     with engine.connect() as conn:
-        res = conn.execute(sqlalchemy.text(
-            'SELECT DISTINCT governorate FROM public."Table_2018";'
-        ))
+        res = conn.execute(sqlalchemy.text(query))
         rows = res.all()
         govs = [i[0] for i in rows]
         return govs
 
 
 def create_sql_data_query(table_name, table_alias, cols,
-                          date_begin, date_end, hour_begin, hour_end, gov, district):
-    columns = ['{}.{}'.format(table_alias, col) for col in cols]
+                          date_begin, date_end, hour_begin, hour_end, gov,
+                          district):
+    columns = [f'{table_alias}.{col}' for col in cols]
     columns = ','.join(columns)
-    query = "\
+    query = f"\
 SELECT {columns} \
-FROM public.\"{table_name}\" as {alias} \
+FROM public.\"{table_name}\" AS {table_alias} \
 WHERE \
-{alias}.date BETWEEN '{date_begin}'::date AND '{date_end}'::date \
-AND {alias}.hour BETWEEN {hour_begin} AND {hour_end} \
-AND {alias}.text IS NOT NULL \
-{area_condition} \
-"
-    area_condition = ''
+{table_alias}.date BETWEEN '{date_begin}'::date AND '{date_end}'::date \
+AND {table_alias}.hour BETWEEN {hour_begin} AND {hour_end} \
+AND {table_alias}.text IS NOT NULL "
 
     if district:
-        area_condition = "AND {}.districts = '{}'".format(
-            table_alias, district)
+        query += f"AND {table_alias}.districts = '{district}'"
     elif gov:
-        area_condition = "AND {}.governorate = '{}'".format(table_alias, gov)
+        query += f"AND {table_alias}.governorate = '{gov}'"
 
-    query = query.format(
-        table_name=table_name, alias=table_alias, columns=columns,
-        date_begin=date_begin, date_end=date_end, hour_begin=hour_begin,
-        hour_end=hour_end, area_condition=area_condition
-    )
     return query
 
 
@@ -53,31 +53,32 @@ def create_sql_count_query(col, date_begin, date_end, hour_begin, hour_end, gov,
                                     hour_end, gov, district)
               for table in tables]
     total_query = ' UNION ALL '.join(querys)
-    query = "\
+    query = f"\
 SELECT sub.{col}, COUNT(*) as c \
 FROM ( \
-{nested_query} \
+{total_query} \
 ) as sub \
 GROUP BY sub.{col} \
 ORDER BY c DESC \
 LIMIT 10 \
 ;"
-    return query.format(col=col, nested_query=total_query)
+    return query
 
 
 def get_data(date_begin, date_end, hour_begin, hour_end, gov, district):
     tables = (('Table_2018', 't1'), ('Table_2019', 't2'))
     cols = ('lat', 'lng', 'text', 'hour', 'date')
+
     querys = [create_sql_data_query(table[0], table[1], cols,
                                     date_begin, date_end, hour_begin, hour_end,
                                     gov, district)
               for table in tables]
+
     total_query = ' UNION ALL '.join(querys)
     total_query += ' LIMIT 1000;'
 
     stmt = sqlalchemy.text(total_query)
 
-    # TODO: efficient way of getting columns as list
     with engine.connect() as conn:
         res = conn.execute(stmt)
         rows = res.all()
@@ -90,9 +91,11 @@ def get_data(date_begin, date_end, hour_begin, hour_end, gov, district):
 
 
 def get_gov_counts(date_begin, date_end, hour_begin, hour_end, gov):
-    query = create_sql_count_query(
-        'governorate', date_begin, date_end, hour_begin, hour_end, gov, None)
+    query = create_sql_count_query('governorate', date_begin, date_end,
+                                   hour_begin, hour_end, gov, None)
+
     stmt = sqlalchemy.text(query)
+
     with engine.connect() as conn:
         res = conn.execute(stmt)
         rows = res.all()
@@ -102,10 +105,10 @@ def get_gov_counts(date_begin, date_end, hour_begin, hour_end, gov):
 
 
 def get_district_counts(date_begin, date_end, hour_begin, hour_end, gov, district):
-    query = create_sql_count_query(
-        'districts', date_begin, date_end, hour_begin, hour_end, gov, district
-    )
+    query = create_sql_count_query('districts', date_begin, date_end,
+                                   hour_begin, hour_end, gov, district)
     stmt = sqlalchemy.text(query)
+
     with engine.connect() as conn:
         res = conn.execute(stmt)
         rows = res.all()
@@ -115,10 +118,11 @@ def get_district_counts(date_begin, date_end, hour_begin, hour_end, gov, distric
 
 
 def get_hour_counts(date_begin, date_end, hour_begin, hour_end, gov, district):
-    query = create_sql_count_query(
-        'hour', date_begin, date_end, hour_begin, hour_end, gov, district
-    )
+    query = create_sql_count_query('hour', date_begin, date_end,
+                                   hour_begin, hour_end, gov, district)
+
     stmt = sqlalchemy.text(query)
+
     with engine.connect() as conn:
         res = conn.execute(stmt)
         rows = res.all()
@@ -128,6 +132,8 @@ def get_hour_counts(date_begin, date_end, hour_begin, hour_end, gov, district):
 
 
 def get_districts(governorate):
+
+    query = 'SELECT DISTINCT governorate FROM public."Table_2018";'
     query = '\
         SELECT DISTINCT districts \
 FROM public."Table_2018" as t1 \

@@ -9,44 +9,34 @@ app = dash.Dash(__name__, external_stylesheets=[dbc.themes.DARKLY],
 
 
 def create_nav_item(name, path, href):
-    return dbc.NavItem(
-        dbc.NavLink(
-            f"{name} - {path}", href=href,
-        )
-    )
+    return dbc.NavItem(dbc.NavLink(f"{name} - {path}", href=href))
 
 
 def create_links():
     return dbc.Row(
-        [
+        class_name="ms-auto",
+        style=dict(border='1px solid yellow', height='100%'),
+        children=[
             dbc.Col(
+                style=dict(height='100%'),
                 children=[
                     dbc.NavItem(
-                        dbc.NavLink(
-                            f"{page['name']}",
-                            href=f"{page['relative_path']}",
-                            style=dict(
-                                border='1px solid red',
-                                height='100%'
-                            )
-                        ),
-                        style=dict(
-                            height='100%'
-                        )
+                        style=dict(height='100%'),
+                        children=[
+                            dbc.NavLink(
+                                href=f"{page['relative_path']}",
+                                style=dict(
+                                    border='1px solid red',
+                                    height='100%'
+                                ),
+                                children=f"{page['name']}",
+                            ),
+                        ]
                     )
                 ],
-                style=dict(
-                    height='100%'
-                )
             )
             for page in dash.page_registry.values()
         ],
-        class_name="ms-auto",
-        # align="center",
-        style=dict(
-            border='1px solid yellow',
-            height='100%'
-        )
     )
 
 
@@ -65,41 +55,43 @@ app.layout = dbc.Container(
                     children=[
                         html.H1('Twitter Geo-Analysis'),
                         dbc.Navbar(
+                            color='dark',
+                            sticky='top',
+                            expand='xl',
                             children=[
                                 dbc.Row(
                                     children=[
                                         dbc.Col(
                                             html.A(
                                                 html.Img(
-                                                    src='assets/imgs/logo.png', height='60px'),
+                                                    src='assets/imgs/logo.png',
+                                                    height='60px'),
                                                 href='https://www.kisr.edu.kw/en/'
                                             )
                                         )
                                     ]
                                 ),
                                 dbc.NavbarToggler(
-                                    id="navbar-toggler", n_clicks=0),
+                                    id="navbar-toggler",
+                                    n_clicks=0
+                                ),
                                 dbc.Collapse(
-                                    children=[
-                                        dbc.NavItem(
-                                            dbc.NavLink(
-                                                'Live Feed', href='/'
-                                            )
-                                        ),
-                                        dbc.NavItem(
-                                            dbc.NavLink(
-                                                'Historical Data', href='/historical'
-                                            )
-                                        ),
-                                    ],
                                     id="navbar-collapse",
                                     is_open=False,
                                     navbar=True,
+                                    children=[
+                                        dbc.NavItem(
+                                            dbc.NavLink('Live Feed', href='/')
+                                        ),
+                                        dbc.NavItem(
+                                            dbc.NavLink(
+                                                'Historical Data',
+                                                href='/historical'
+                                            )
+                                        ),
+                                    ],
                                 )
                             ],
-                            color='dark',
-                            sticky='top',
-                            expand='xl',
                         ),
                         dash.page_container
                     ]
