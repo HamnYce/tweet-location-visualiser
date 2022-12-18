@@ -25,8 +25,9 @@ def get_distinct_govs():
 
 
 def create_sql_data_query(table_name, table_alias, cols,
-                          date_begin, date_end, hour_begin, hour_end, gov,
-                          district):
+                          date_begin, date_end, hour_begin, hour_end, govs,
+                          districts):
+
     columns = [f'{table_alias}.{col}' for col in cols]
     columns = ','.join(columns)
     query = f"\
@@ -37,22 +38,26 @@ WHERE \
 AND {table_alias}.hour BETWEEN {hour_begin} AND {hour_end} \
 AND {table_alias}.text IS NOT NULL "
 
-    if district:
-        query += f"AND {table_alias}.districts = '{district}'"
-    elif gov:
-        query += f"AND {table_alias}.governorate = '{gov}'"
+    if districts:
+        query += " AND "
+        query += [f" {table_alias}.districts = '{dis}' " for dis in districts].join(' OR ')
+    elif govs:
+        query += " AND "
+        query += [f" {table_alias}.districts = '{gov}' " for gov in govs].join(' OR ')
 
     return query
 
 
-def create_sql_count_query(col, date_begin, date_end, hour_begin, hour_end, gov, district):
+def create_sql_count_query(col, date_begin, date_end, hour_begin, hour_end,
+                           govs, districts):
     tables = [['Table_2018', 't1'], ['Table_2019', 't2']]
     columns = [col]
     querys = [create_sql_data_query(table[0], table[1], columns,
                                     date_begin, date_end, hour_begin,
-                                    hour_end, gov, district)
+                                    hour_end, govs, districts)
               for table in tables]
     total_query = ' UNION ALL '.join(querys)
+
     query = f"\
 SELECT sub.{col}, COUNT(*) as c \
 FROM ( \
@@ -60,18 +65,19 @@ FROM ( \
 ) as sub \
 GROUP BY sub.{col} \
 ORDER BY c DESC \
-LIMIT 10 \
-;"
+"
     return query
 
 
-def get_data(date_begin, date_end, hour_begin, hour_end, gov, district):
+# TODO: change everything to mesh with
+def get_data(date_begin, date_end, hour_begin, hour_end, govs, districts):
     tables = (('Table_2018', 't1'), ('Table_2019', 't2'))
+
     cols = ('lat', 'lng', 'text', 'hour', 'date')
 
     querys = [create_sql_data_query(table[0], table[1], cols,
                                     date_begin, date_end, hour_begin, hour_end,
-                                    gov, district)
+                                    govs, districts)
               for table in tables]
 
     total_query = ' UNION ALL '.join(querys)
@@ -107,6 +113,7 @@ def get_gov_counts(date_begin, date_end, hour_begin, hour_end, gov):
 def get_district_counts(date_begin, date_end, hour_begin, hour_end, gov, district):
     query = create_sql_count_query('districts', date_begin, date_end,
                                    hour_begin, hour_end, gov, district)
+    query += ' LIMIT 10'
     stmt = sqlalchemy.text(query)
 
     with engine.connect() as conn:

@@ -284,7 +284,7 @@ def update_data(_interval):
     hours = df.loc[:, 'hour'].value_counts()
     hour_dic = dict(hours)
 
-    # to fix barchart xaxis
+    # to fix barchart x-axis
     for i in range(24):
         if i not in hour_dic:
             hour_dic[i] = 0

@@ -63,6 +63,7 @@ def gov_picker_row():
                 dcc.Dropdown(
                     id='gov-dropdown',
                     className='dash-bootstrap',
+                    multi=True,
                     options=[
                         dict(label=gov, value=gov)
                         for gov in sql_library.get_distinct_govs()
@@ -81,6 +82,7 @@ def district_picker_row():
                 dcc.Dropdown(
                     id='district-dropdown',
                     className='dash-bootstrap',
+                    multi=True,
                 ),
             ]
         )
@@ -262,12 +264,14 @@ def district_bar_panel():
 # NOTE: # of tweets per hour bar chart
 
 
-def create_hour_bar_fig(x, y):
+def create_hour_bar_fig(x, y, color=None):
+    color = x if not color else color
     return px.bar(
         x=x,
         y=y,
         title='# of Tweets per Hour',
-        color=x
+        color=color,
+        barmode='group'
     ).update_layout(
         plot_bgcolor='rgba(0,0,0,0)',
         paper_bgcolor='rgba(0,0,0,0)',
@@ -397,11 +401,13 @@ def tweet_sample_panel():
 
     Input('gov-dropdown', 'value'),
 )
-def update_districts(gov_value):
-    if not gov_value:
+def update_districts(gov_values):
+    if not gov_values:
         return []
 
-    districts = sql_library.get_districts(gov_value)
+    districts = []
+    for gov_value in gov_values:
+        districts += sql_library.get_districts(gov_value)
 
     options = [
         dict(label=district, value=district)
@@ -426,23 +432,8 @@ def change_tab(tab_id, graphs_row):
     return graphs_row
 
 
-@callback(
-    Output('scatter-mapbox-graph-historical', 'figure'),  # scatter fig
-    Output('district-bar-graph', 'figure'),  # district graph
-    Output('hour-bar-graph', 'figure'),  # hour graph
-    Output('gov-pie-graph', 'figure'),  # gov pie chart
-    Output('tweets-datatable', 'data'),  # tweets datatable
-
-    Input('apply-button', 'n_clicks'),  # apply button
-
-    State('date-picker', 'start_date'),  # date begin
-    State('date-picker', 'end_date'),  # date end
-    State('hour-slider', 'value'),  # hour values
-    State('gov-dropdown', 'value'),  # governorate
-    State('district-dropdown', 'value'),  # district
-)
-def apply_filter_to_graphs(_click, date_start, date_end, hours, gov, district):
-    scatter_fig = go.Figure().update_layout(
+def empty_scatter_fig():
+    return go.Figure().update_layout(
         dict(
             paper_bgcolor='rgba(0,0,0,0)',
             plot_bgcolor='rgba(0,0,0,0)',
@@ -459,26 +450,53 @@ def apply_filter_to_graphs(_click, date_start, date_end, hours, gov, district):
         )
     )
 
-    hour_order, hours_count = sql_library.get_hour_counts(date_start, date_end,
-                                                          hours[0], hours[1],
-                                                          gov, district)
+@callback(
+    Output('scatter-mapbox-graph-historical', 'figure'),  # scatter fig
+    Output('district-bar-graph', 'figure'),  # district graph
+    Output('hour-bar-graph', 'figure'),  # hour graph
+    Output('gov-pie-graph', 'figure'),  # gov pie chart
+    Output('tweets-datatable', 'data'),  # tweets datatable
 
-    hour_fig = create_hour_bar_fig(hour_order, hours_count)
+    Input('apply-button', 'n_clicks'),  # apply button
+
+    State('date-picker', 'start_date'),  # date begin
+    State('date-picker', 'end_date'),  # date end
+    State('hour-slider', 'value'),  # hour values
+    State('gov-dropdown', 'value'),  # governorate
+    State('district-dropdown', 'value'),  # district
+)
+def apply_filter_to_graphs(_click, date_start, date_end, hours, govs,
+                           districts):
+    scatter_fig = empty_scatter_fig()
+
+    hour_order, hour_count = sql_library.get_hour_counts(date_start, date_end,
+                                                         hours[0], hours[1],
+                                                         govs, districts)
+
+    # to fix barchart x-axis
+    for i in range(24):
+        if i not in hour_order:
+            hour_order.append(i)
+            hour_count.append(0)
+
+    hour_fig = create_hour_bar_fig(hour_order, hour_count
+                               ).update_traces(dict(width=0.8))
 
     gov_names, gov_counts = sql_library.get_gov_counts(date_start, date_end,
-                                                       hours[0], hours[1], gov)
+                                                       hours[0], hours[1], govs)
 
     pie_fig = create_gov_pie_fig(gov_names, gov_counts)
 
     district_names, district_count = sql_library.get_district_counts(
-        date_start, date_end, hours[0], hours[1], gov, district)
+        date_start, date_end, hours[0], hours[1], govs, districts)
 
     district_fig = create_district_fig(
         district_names, district_count)
 
     _, _, text, hour, _ = sql_library.get_data(date_start, date_end,
                                                hours[0], hours[1],
-                                               gov, district)
+                                               govs, districts)
+
     tweets = [dict(tweets=tex) for tex in text]
 
     return scatter_fig, district_fig, hour_fig, pie_fig, tweets

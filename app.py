@@ -53,7 +53,6 @@ app.layout = dbc.Container(
             children=[
                 dbc.Col(
                     children=[
-                        html.H1('Twitter Geo-Analysis'),
                         dbc.Navbar(
                             color='dark',
                             sticky='top',
