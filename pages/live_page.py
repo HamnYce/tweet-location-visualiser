@@ -273,13 +273,9 @@ def update_data(_interval):
 
     update_mapbox_layout(density_mapbox)
 
+    # this sets the color scale
     density_mapbox.update_layout(
-        dict(
-            coloraxis=dict(
-                # this sets the color scale
-                colorscale=px.colors.sequential.Blackbody_r,
-            ),
-        )
+        coloraxis=dict(colorscale=px.colors.sequential.Blackbody_r,),
     )
 
     # hourly bar chart

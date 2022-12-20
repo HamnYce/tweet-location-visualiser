@@ -560,8 +560,7 @@ def apply_filter_to_graphs(_click, date_start, date_end, hours, govs,
 
 )
 def update_mapbox_graphs(_fig, date_start, date_end, hours, govs, districts):
-    scatter_fig = go.Figure()
-    density_fig = go.Figure()
+    scatter_fig, density_fig = go.Figure(), go.Figure()
 
     update_mapbox_layout(scatter_fig)
     update_mapbox_layout(density_fig)
@@ -584,6 +583,7 @@ def update_mapbox_graphs(_fig, date_start, date_end, hours, govs, districts):
                     lon=lng,
                     name='',
                     showlegend=False,
+                    colorscale=px.colors.sequential.Blackbody_r,
                 )
             )
 
