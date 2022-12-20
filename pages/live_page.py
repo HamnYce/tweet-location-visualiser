@@ -139,19 +139,18 @@ def maps_panel():
         ]
     )
 
-
 def create_hour_bar_fig(x, y):
     return px.bar(
         x=x,
         y=y,
         title='# of Tweets per Hour',
         color=x,
-        barmode='group'
+    ).update_traces(
+        hovertemplate='%{y}'
     ).update_layout(
         plot_bgcolor='rgba(0,0,0,0)',
         paper_bgcolor='rgba(0,0,0,0)',
         margin=dict(l=10, r=10, b=10),
-        hovermode='x',
         legend=dict(
             bgcolor='rgba(0,0,0,0)',
             title=dict(text='Hour')
@@ -170,11 +169,9 @@ def create_hour_bar_fig(x, y):
         ),
         tickfont=dict(size=10),
         range=[-0.5, 23.5],
-        fixedrange=True,
         nticks=24,
     ).update_yaxes(
         title=dict(text='# of Tweets', font=dict(size=10)),
-        fixedrange=True,
     )
 
 
@@ -228,13 +225,15 @@ def change_tab(tab_id, graphs_row):
 
 )
 def update_data(_interval):
-    lat, lng, hour, districts, user_id = sql_library.get_random_sample()
+    lat, lng, date, hour, districts, texts, user_id = sql_library.get_random_sample()
 
     df = pd.DataFrame(dict(
         user_id=user_id,
         lat=lat,
         lng=lng,
         hour=hour,
+        date=date,
+        text=texts,
         districts=districts
     )
     ).dropna()
@@ -267,6 +266,9 @@ def update_data(_interval):
         data_frame=df,
         lat='lat',
         lon='lng',
+    ).update_traces(
+        customdata=df['text'],
+        hovertemplate='%{customdata}'
     )
 
     update_mapbox_layout(density_mapbox)
@@ -282,14 +284,15 @@ def update_data(_interval):
 
     # hourly bar chart
     hours = df.loc[:, 'hour'].value_counts()
-    hour_dic = dict(hours)
+    hour_index, hour_values = hours.index, hours.values
 
     # to fix barchart x-axis
     for i in range(24):
-        if i not in hour_dic:
-            hour_dic[i] = 0
+        if i not in hour_index:
+            hour_index += 0
+            hour_values += 0
 
-    bar_graph = create_hour_bar_fig(hour_dic.keys(), hour_dic.values()
+    bar_graph = create_hour_bar_fig(hour_index, hour_values
                                     ).update_traces(dict(width=0.8))
 
     # Output variables
@@ -305,13 +308,15 @@ def update_data(_interval):
 def update_map(_scatter_map):
     # TODO: this can be optimised but will
     # depend on how we will be getting samples
-    lat, lng, hour, _, _ = sql_library.get_random_sample()
+    lat, lng, date, hour, districts, texts, user_id = sql_library.get_random_sample()
 
     df = pd.DataFrame(
         dict(
             lat=lat,
             lng=lng,
-            hour=hour
+            date=date,
+            text=texts,
+            hour=hour,
         )
     ).dropna()
 
@@ -321,7 +326,15 @@ def update_map(_scatter_map):
         lon='lng',
         color='hour',
         range_color=[0, 23],
+    ).update_traces(
+        marker=dict(
+            opacity=0.7,
+            size=14
+        ),
+        customdata=df['text'],
+        hovertemplate='%{customdata}'
     )
+
     update_mapbox_layout(scatter_map)
 
     graph = dbc.Spinner(

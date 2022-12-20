@@ -216,37 +216,55 @@ def maps_panel():
 
 # NOTE: top districts of # of tweets bar chart
 
+def create_gov_color_map():
+    return dict(
+        zip(
+            ['Ahmadi', 'Capital', 'Farwaniya', 'Hawalli', 'Jahra',
+             'Mubarak Al-Kabeer'],
+            px.colors.qualitative.Set3
+        )
+    )
 
-def create_district_fig(names, count):
+
+def create_district_fig(districts, counts, govs):
+    gov_color_map = create_gov_color_map()
+    color_map = dict()
+    for i in range(len(govs)):
+        color_map[districts[i]] = gov_color_map[govs[i]]
+
     return px.bar(
-        x=names,
-        y=count,
-        title='Top 10 Districts',
-        color_discrete_sequence=['#ffd']
+        x=districts,
+        y=counts,
+        title=f'Top {len(govs)} Districts',
+        color=districts,
+        color_discrete_map=color_map,
+        text=counts
     ).update_layout(
         plot_bgcolor='rgba(0,0,0,0)',
         paper_bgcolor='rgba(0,0,0,0)',
         margin=dict(l=10, r=10, b=10),
-        hovermode='x',
         legend=dict(bgcolor='rgba(0,0,0,0)'),
         font=dict(color='#fff'),
         title=dict(x=0.5, y=0.9, font=dict(size=30)),
-        showlegend=False
+        showlegend=False,
+        hovermode=False,
     ).update_xaxes(
         title=dict(
             text='Districts',
             font=dict(size=20),
         ),
         tickfont=dict(size=20),
+        showgrid=False
     ).update_yaxes(
-        title=dict(text='# of Tweets', font=dict(size=20))
+        title=dict(text='# of Tweets', font=dict(size=20)),
+        showgrid=False,
     )
 
 
 def district_graph():
     return dcc.Graph(
         id='district-bar-graph',
-        figure=create_district_fig(None, None),
+        figure=create_district_fig(None, None, {},),
         style=dict(border='1px solid var(--bs-body-color)', height='100%'),
     )
 
@@ -264,19 +282,26 @@ def district_bar_panel():
 # NOTE: # of tweets per hour bar chart
 
 
-def create_hour_bar_fig(x, y, color=None):
-    color = x if not color else color
-    return px.bar(
-        x=x,
-        y=y,
-        title='# of Tweets per Hour',
-        color=color,
-        barmode='group'
+def create_hour_bar_fig(x, y):
+    return go.Figure(
+        data=[
+            go.Bar(
+                name=gov, x=x[gov], y=y[gov],
+                marker=dict(
+                    color=x[gov], line=dict(color=x[gov],
+                                            colorscale=['#fff', '#000'])
+                ),
+                hovertemplate=gov + '<br>%{y} Tweets',
+            )
+            for gov in x
+        ]
+    ).update_traces(
+        dict(width=0.8),
     ).update_layout(
+        barmode='stack',
         plot_bgcolor='rgba(0,0,0,0)',
         paper_bgcolor='rgba(0,0,0,0)',
         margin=dict(l=10, r=10, b=10),
-        hovermode='x',
         legend=dict(
             bgcolor='rgba(0,0,0,0)',
             title=dict(text='Hour')
@@ -287,7 +312,8 @@ def create_hour_bar_fig(x, y, color=None):
             colorscale=px.colors.sequential.Viridis_r,
             colorbar=dict(title=dict(text='hour')),
         ),
-        title=dict(x=0.5, y=0.9, font=dict(size=30)),
+        title=dict(text='# of Tweets per Hour',
+                   x=0.5, y=0.9, font=dict(size=30)),
     ).update_xaxes(
         title=dict(
             text='Hour',
@@ -295,7 +321,7 @@ def create_hour_bar_fig(x, y, color=None):
         ),
         tickfont=dict(size=20),
     ).update_yaxes(
-        title=dict(text='# of Tweets', font=dict(size=20))
+        title=dict(text='# of Tweets', font=dict(size=20)),
     )
 
 
@@ -306,7 +332,8 @@ def hour_bar_graph():
             border='1px solid var(--bs-body-color)',
             height='100%'
         ),
-        figure=create_hour_bar_fig(None, None),
+        figure=create_hour_bar_fig({':)': [i for i in range(24)]},
+                                   {':)': [i * i for i in range(24)]}),
     )
 
 
@@ -327,8 +354,11 @@ def create_gov_pie_fig(names, values):
     return px.pie(
         names=names,
         values=values,
-        color_discrete_sequence=px.colors.qualitative.Set3,
-        title='Percentage of Tweets Per Governorate'
+        color=names,
+        color_discrete_map=create_gov_color_map(),
+        title='Percentage of Tweets Per Governorate',
+    ).update_traces(
+        hovertemplate='%{value} Tweets'
     ).update_layout(
         dict(
             plot_bgcolor='rgba(0,0,0,0)',
@@ -396,6 +426,28 @@ def tweet_sample_panel():
     )
 
 
+# NOTE: Callback Helper methods
+
+def empty_scatter_fig():
+    return go.Figure().update_layout(
+        dict(
+            paper_bgcolor='rgba(0,0,0,0)',
+            plot_bgcolor='rgba(0,0,0,0)',
+            xaxis=dict(
+                showgrid=False,
+                showticklabels=False,
+                visible=False,
+            ),
+            yaxis=dict(
+                showgrid=False,
+                showticklabels=False,
+                visible=False,
+            ),
+        )
+    )
+
+
+
 @callback(
     Output('district-dropdown', 'options'),
 
@@ -405,9 +457,7 @@ def update_districts(gov_values):
     if not gov_values:
         return []
 
-    districts = []
-    for gov_value in gov_values:
-        districts += sql_library.get_districts(gov_value)
+    districts = sql_library.get_districts(gov_values)
 
     options = [
         dict(label=district, value=district)
@@ -432,23 +482,26 @@ def change_tab(tab_id, graphs_row):
     return graphs_row
 
 
-def empty_scatter_fig():
-    return go.Figure().update_layout(
-        dict(
-            paper_bgcolor='rgba(0,0,0,0)',
-            plot_bgcolor='rgba(0,0,0,0)',
-            xaxis=dict(
-                showgrid=False,
-                showticklabels=False,
-                visible=False,
-            ),
-            yaxis=dict(
-                showgrid=False,
-                showticklabels=False,
-                visible=False,
-            ),
-        )
-    )
+def update_hour_fig(date_start, date_end, hours, govs, districts):
+    total_hour_order = dict()
+    total_hour_count = dict()
+    iterable = districts if districts else govs if govs else ['All']
+
+    for iterab in iterable:
+        gov, district = None, None
+        if districts:
+            district, gov = [iterab], None
+        elif govs:
+            district, gov = None, [iterab]
+        hour_order, hour_count = sql_library.get_hour_counts(date_start,
+                                                             date_end,
+                                                             hours[0], hours[1],
+                                                             gov, district)
+        total_hour_order[iterab] = hour_order
+        total_hour_count[iterab] = hour_count
+
+    return create_hour_bar_fig(total_hour_order, total_hour_count)
+
 
 @callback(
     Output('scatter-mapbox-graph-historical', 'figure'),  # scatter fig
@@ -469,18 +522,7 @@ def apply_filter_to_graphs(_click, date_start, date_end, hours, govs,
                            districts):
     scatter_fig = empty_scatter_fig()
 
-    hour_order, hour_count = sql_library.get_hour_counts(date_start, date_end,
-                                                         hours[0], hours[1],
-                                                         govs, districts)
-
-    # to fix barchart x-axis
-    for i in range(24):
-        if i not in hour_order:
-            hour_order.append(i)
-            hour_count.append(0)
-
-    hour_fig = create_hour_bar_fig(hour_order, hour_count
-                               ).update_traces(dict(width=0.8))
+    hour_fig = update_hour_fig(date_start, date_end, hours, govs, districts)
 
     gov_names, gov_counts = sql_library.get_gov_counts(date_start, date_end,
                                                        hours[0], hours[1], govs)
@@ -489,13 +531,15 @@ def apply_filter_to_graphs(_click, date_start, date_end, hours, govs,
 
     district_names, district_count = sql_library.get_district_counts(
         date_start, date_end, hours[0], hours[1], govs, districts)
+    district_gov_names = sql_library.get_gov_names(district_names)
+
 
     district_fig = create_district_fig(
-        district_names, district_count)
+        district_names, district_count, [district_gov_names[dis] for dis in district_names])
 
-    _, _, text, hour, _ = sql_library.get_data(date_start, date_end,
-                                               hours[0], hours[1],
-                                               govs, districts)
+    _, _, text, hour, _, _ = sql_library.get_data(date_start, date_end,
+                                                  hours[0], hours[1],
+                                                  govs, districts)
 
     tweets = [dict(tweets=tex) for tex in text]
 
@@ -515,7 +559,7 @@ def apply_filter_to_graphs(_click, date_start, date_end, hours, govs,
     State('district-dropdown', 'value'),  # district
 
 )
-def update_graph(_fig, date_start, date_end, hours, gov, district):
+def update_mapbox_graphs(_fig, date_start, date_end, hours, govs, districts):
     scatter_fig = go.Figure()
     density_fig = go.Figure()
 
@@ -523,23 +567,22 @@ def update_graph(_fig, date_start, date_end, hours, gov, district):
     update_mapbox_layout(density_fig)
 
     for i in range(24):
-        lat, lng = [-1], [-1]
+        lat, lng, point_districts = [-1], [-1], [-1]
         custom_text = None
 
         if hours[0] <= i <= hours[1]:
-            lat, lng, text, _, date = sql_library.get_data(
-                date_start, date_end, i, i, gov, district)
+            lat, lng, text, _, date, point_districts = sql_library.get_data(
+                date_start, date_end, i, i, govs, districts)
 
-            custom_text = [
-                f'Date: {da}<br>Tweet:{tex}'
-                for da, tex in zip(date, text)
-            ]
+            custom_text = [f'{da}<br>{tex}' for da, tex in zip(date, text)]
 
             density_fig.add_trace(
                 go.Densitymapbox(
+                    text=custom_text,
+                    hovertemplate='%{text}',
                     lat=lat,
                     lon=lng,
-                    name=str(i),
+                    name='',
                     showlegend=False,
                 )
             )
@@ -550,15 +593,15 @@ def update_graph(_fig, date_start, date_end, hours, gov, district):
                 hovertemplate='%{text}',
                 lat=lat,
                 lon=lng,
+                name='',
+                showlegend=False,
                 marker=dict(
                     color=[i for _ in range(len(lat))],
                     coloraxis='coloraxis',
                     opacity=0.7,
                     size=14
                 ),
-                name=str(i),
-                showlegend=False,
-                uid=1
+                uid=1,
             )
         )
 
