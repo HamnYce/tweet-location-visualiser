@@ -53,44 +53,50 @@ app.layout = dbc.Container(
             children=[
                 dbc.Col(
                     children=[
-                        dbc.Navbar(
-                            color='dark',
-                            sticky='top',
-                            expand='xl',
-                            children=[
-                                dbc.Row(
-                                    children=[
-                                        dbc.Col(
-                                            html.A(
-                                                html.Img(
-                                                    src='assets/imgs/logo.png',
-                                                    height='60px'),
-                                                href='https://www.kisr.edu.kw/en/'
+                        dbc.Container(
+                            class_name='p-2',
+                            fluid=True,
+                            children=dbc.Navbar(
+                                style=dict(borderRadius='5px', ),
+                                color='dark',
+                                sticky='top',
+                                expand='xl',
+                                children=[
+                                    dbc.Row(
+                                        children=[
+                                            dbc.Col(
+                                                html.A(
+                                                    html.Img(
+                                                        src='assets/imgs/logo.png',
+                                                        height='60px'),
+                                                    href='https://www.kisr.edu.kw/en/'
+                                                )
                                             )
-                                        )
-                                    ]
-                                ),
-                                dbc.NavbarToggler(
-                                    id="navbar-toggler",
-                                    n_clicks=0
-                                ),
-                                dbc.Collapse(
-                                    id="navbar-collapse",
-                                    is_open=False,
-                                    navbar=True,
-                                    children=[
-                                        dbc.NavItem(
-                                            dbc.NavLink('Live Feed', href='/')
-                                        ),
-                                        dbc.NavItem(
-                                            dbc.NavLink(
-                                                'Historical Data',
-                                                href='/historical'
-                                            )
-                                        ),
-                                    ],
-                                )
-                            ],
+                                        ]
+                                    ),
+                                    dbc.NavbarToggler(
+                                        id="navbar-toggler",
+                                        n_clicks=0
+                                    ),
+                                    dbc.Collapse(
+                                        id="navbar-collapse",
+                                        is_open=False,
+                                        navbar=True,
+                                        children=[
+                                            dbc.NavItem(
+                                                dbc.NavLink('Live Feed',
+                                                            href='/')
+                                            ),
+                                            dbc.NavItem(
+                                                dbc.NavLink(
+                                                    'Historical Data',
+                                                    href='/historical'
+                                                )
+                                            ),
+                                        ],
+                                    )
+                                ],
+                            ),
                         ),
                         dash.page_container
                     ]

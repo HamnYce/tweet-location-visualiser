@@ -13,7 +13,7 @@ token = open('.mapbox_token').read()
 px.set_mapbox_access_token(token)
 
 
-# NOTE: Config Panel
+#  Config Panel
 
 
 def date_picker_row():
@@ -108,7 +108,10 @@ def config_panel():
                 style=dict(height='100%'),
                 children=[
                     dbc.Col(
-                        style=dict(border='1px solid var(--bs-body-color)'),
+                        style=dict(
+                            border='1px solid var(--bs-body-color)',
+                            borderRadius='5px'
+                        ),
                         children=[
                             date_picker_row(),
                             hour_slider_row(),
@@ -123,13 +126,13 @@ def config_panel():
     )
 
 
-# NOTE: Map Boxes
+#  Maps Panel
 
 
 def create_tabs():
     return dbc.Tabs(
         id='map-tabs',
-        style=dict(border='1px solid white'),
+        style=dict(border='1px solid white', borderRadius='5px 5px 0 0'),
         children=[
             dbc.Tab(label='Scatter Map', tab_id='scatter-tab'),
             dbc.Tab(label='Density Map', tab_id='density-tab')
@@ -155,18 +158,27 @@ def update_mapbox_layout(fig):
     )
 
 
-def scatter_map_graph():
+def scatter_map_graph(fig=None):
+    if not fig:
+        fig = update_mapbox_layout(px.scatter_mapbox(lat=[1], lon=[1]))
+
     return dcc.Graph(
         id='scatter-mapbox-graph-historical',
-        style=dict(height='100%', border='1px solid white', borderTop='0'),
-        figure=update_mapbox_layout(px.scatter_mapbox(lat=[1], lon=[1])),
+        style=dict(
+            height='100%', border='1px solid white', borderTop='0',
+            borderRadius='0 0 5px 5px'
+        ),
+        figure=fig,
     )
 
 
 def density_map_graph():
     return dcc.Graph(
         id='density-mapbox-graph',
-        style=dict(height='100%', border='1px solid white', borderTop='0'),
+        style=dict(
+            height='100%', border='1px solid white', borderTop='0',
+            borderRadius='0 0 5px 5px'
+        ),
         figure=update_mapbox_layout(px.density_mapbox(lat=[1], lon=[1])),
     )
 
@@ -202,7 +214,7 @@ def maps_panel():
     )
 
 
-# NOTE: top districts of # of tweets bar chart
+# Top districts of # of tweets bar chart
 
 def create_gov_color_map():
     return dict(
@@ -241,7 +253,7 @@ def create_district_fig(districts, counts, govs):
             text='Districts',
             font=dict(size=20),
         ),
-        tickfont=dict(size=20),
+        tickfont=dict(size=15),
         showgrid=False
     ).update_yaxes(
         title=dict(text='# of Tweets', font=dict(size=20)),
@@ -252,8 +264,11 @@ def create_district_fig(districts, counts, govs):
 def district_graph():
     return dcc.Graph(
         id='district-bar-graph',
-        figure=create_district_fig(None, None, {},),
-        style=dict(border='1px solid var(--bs-body-color)', height='100%'),
+        figure=create_district_fig(None, None, {}, ),
+        style=dict(
+            border='1px solid var(--bs-body-color)', height='100%',
+            borderRadius='5px'
+        ),
     )
 
 
@@ -262,12 +277,12 @@ def district_bar_panel():
         sm=12,
         lg=6,
         style=dict(height='100%'),
-        class_name='p-2',
+        class_name='p-2 order-sm-2 order-lg-1',
         children=district_graph()
     )
 
 
-# NOTE: # of tweets per hour bar chart
+# # of tweets per hour bar chart
 
 
 def create_hour_bar_fig(x, y):
@@ -318,6 +333,7 @@ def hour_bar_graph():
         id='hour-bar-graph',
         style=dict(
             border='1px solid var(--bs-body-color)',
+            borderRadius='5px',
             height='100%'
         ),
         figure=create_hour_bar_fig({':)': [i for i in range(24)]},
@@ -330,12 +346,12 @@ def hour_bar_panel():
         sm=12,
         lg=6,
         style=dict(height='100%'),
-        class_name='p-2',
+        class_name='p-2 order-sm-1 order-lg-2',
         children=hour_bar_graph()
     )
 
 
-# NOTE: # of tweet in each gov pie chart
+# # of tweet in each gov pie chart
 
 
 def create_gov_pie_fig(names, values):
@@ -363,7 +379,7 @@ def create_gov_pie_fig(names, values):
 def gov_pie_graph():
     return dcc.Graph(
         id='gov-pie-graph',
-        style=dict(border='1px solid var(--bs-body-color)'),
+        style=dict(border='1px solid var(--bs-body-color)', borderRadius='5px'),
         figure=create_gov_pie_fig(None, None),
     )
 
@@ -377,7 +393,7 @@ def gov_pie_chart_panel():
     )
 
 
-# NOTE: Datatable of tweets
+# Datatable of tweets
 
 
 def create_tweets_datatable(data):
@@ -389,13 +405,13 @@ def create_tweets_datatable(data):
             backgroundColor='#111',
             color='var(--bs-body-color)',
             textAlign='left',
-            fontSize=20
+            fontSize=20,
         ),
         style_data=dict(
             backgroundColor='#111',
             color='var(--bs-body-color)',
             textAlign='left',
-            fontSize=16
+            fontSize=16,
         ),
         style_table=dict(height='100%', overflowY='auto'),
         page_size=10,
@@ -414,7 +430,7 @@ def tweet_sample_panel():
     )
 
 
-# NOTE: Callback Helper methods
+# Callback Helper methods
 
 def empty_scatter_fig():
     return go.Figure().update_layout(
@@ -435,6 +451,58 @@ def empty_scatter_fig():
     )
 
 
+def update_hour_fig(date_start, date_end, hours, govs, districts):
+    total_hour_order = dict()
+    total_hour_count = dict()
+    iterable = districts if districts else govs if govs else ['All']
+
+    for iterab in iterable:
+        gov, district = None, None
+        if districts:
+            district, gov = [iterab], None
+        elif govs:
+            district, gov = None, [iterab]
+        hour_order, hour_count = sql_library.get_hour_counts(date_start,
+                                                             date_end,
+                                                             hours[0], hours[1],
+                                                             gov, district)
+        total_hour_order[iterab] = hour_order
+        total_hour_count[iterab] = hour_count
+
+    return create_hour_bar_fig(total_hour_order, total_hour_count)
+
+
+def create_scatter_fig(custom_text, i, lat, lng):
+    return go.Scattermapbox(
+        text=custom_text,
+        hovertemplate='%{text}',
+        lat=lat,
+        lon=lng,
+        name='',
+        showlegend=False,
+        marker=dict(
+            color=[i for _ in range(len(lat))],
+            coloraxis='coloraxis',
+            opacity=0.7,
+            size=14
+        ),
+        uid=1,
+    )
+
+
+def create_density_trace(custom_text, lat, lng):
+    return go.Densitymapbox(
+        text=custom_text,
+        hovertemplate='%{text}',
+        lat=lat,
+        lon=lng,
+        name='',
+        showlegend=False,
+        colorscale=px.colors.sequential.Blackbody_r,
+    )
+
+
+# Callbacks
 
 @callback(
     Output('district-dropdown', 'options'),
@@ -470,27 +538,6 @@ def change_tab(tab_id, graphs_row):
     return graphs_row
 
 
-def update_hour_fig(date_start, date_end, hours, govs, districts):
-    total_hour_order = dict()
-    total_hour_count = dict()
-    iterable = districts if districts else govs if govs else ['All']
-
-    for iterab in iterable:
-        gov, district = None, None
-        if districts:
-            district, gov = [iterab], None
-        elif govs:
-            district, gov = None, [iterab]
-        hour_order, hour_count = sql_library.get_hour_counts(date_start,
-                                                             date_end,
-                                                             hours[0], hours[1],
-                                                             gov, district)
-        total_hour_order[iterab] = hour_order
-        total_hour_count[iterab] = hour_count
-
-    return create_hour_bar_fig(total_hour_order, total_hour_count)
-
-
 @callback(
     Output('scatter-mapbox-graph-historical', 'figure'),  # scatter fig
     Output('district-bar-graph', 'figure'),  # district graph
@@ -519,11 +566,12 @@ def apply_filter_to_graphs(_click, date_start, date_end, hours, govs,
 
     district_names, district_count = sql_library.get_district_counts(
         date_start, date_end, hours[0], hours[1], govs, districts)
+
     district_gov_names = sql_library.get_gov_names(district_names)
 
-
     district_fig = create_district_fig(
-        district_names, district_count, [district_gov_names[dis] for dis in district_names])
+        district_names, district_count,
+        [district_gov_names[dis] for dis in district_names])
 
     _, _, text, hour, _, _ = sql_library.get_data(date_start, date_end,
                                                   hours[0], hours[1],
@@ -563,47 +611,11 @@ def update_mapbox_graphs(_fig, date_start, date_end, hours, govs, districts):
 
             custom_text = [f'{da}<br>{tex}' for da, tex in zip(date, text)]
 
-            density_fig.add_trace(
-                go.Densitymapbox(
-                    text=custom_text,
-                    hovertemplate='%{text}',
-                    lat=lat,
-                    lon=lng,
-                    name='',
-                    showlegend=False,
-                    colorscale=px.colors.sequential.Blackbody_r,
-                )
-            )
+            density_fig.add_trace(create_density_trace(custom_text, lat, lng))
 
-        scatter_fig.add_trace(
-            go.Scattermapbox(
-                text=custom_text,
-                hovertemplate='%{text}',
-                lat=lat,
-                lon=lng,
-                name='',
-                showlegend=False,
-                marker=dict(
-                    color=[i for _ in range(len(lat))],
-                    coloraxis='coloraxis',
-                    opacity=0.7,
-                    size=14
-                ),
-                uid=1,
-            )
-        )
+        scatter_fig.add_trace(create_scatter_fig(custom_text, i, lat, lng))
 
-    graph = dbc.Spinner(
-        dcc.Graph(
-            id='scatter-mapbox-graph-historical',
-            style=dict(
-                border='1px solid var(--bs-body-color)',
-                borderTop='0',
-                height='100%'
-            ),
-            figure=scatter_fig,
-        ),
-    )
+    graph = dbc.Spinner(scatter_map_graph(scatter_fig))
 
     return graph, density_fig
 
@@ -614,12 +626,16 @@ def update_mapbox_graphs(_fig, date_start, date_end, hours, govs, districts):
     Output('hour-slider', 'value'),  # hour values
     Output('gov-dropdown', 'value'),  # governorante
     Output('district-dropdown', 'value'),  # district
+    Output('clear-button', 'n_clicks'),
 
     Input('clear-button', 'n_clicks'),  # clear all button
 )
 def clear_config(_n_clicks):
-    return (sql_library.get_min_date(), sql_library.get_max_date(),
-            [0, 23], None, None)
+    if _n_clicks:
+        return (sql_library.get_min_date(), sql_library.get_max_date(),
+                [0, 23], None, None, None)
+    else:
+        raise dash.exceptions.PreventUpdate
 
 
 layout = dbc.Container(

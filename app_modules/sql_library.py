@@ -18,6 +18,8 @@ engine = sqlalchemy.create_engine(
 # TODO: Install and refactor with Pypika!
 
 def get_gov_names(districts):
+    districts = [dis.replace("'", "''") for dis in districts]
+
     query = 'SELECT DISTINCT districts, governorate ' \
             'FROM public."Table_2018" ' \
             'WHERE districts IN ({}) '.format(
@@ -77,6 +79,7 @@ def get_distinct_govs():
 
 def add_districts_govs(query, govs, districts, table_alias):
     if districts:
+        districts = [dis.replace("'", "''") for dis in districts]
         query += " AND "
         query += ' OR '.join([f" {table_alias}.districts = '{dis}' "
                               for dis in districts])

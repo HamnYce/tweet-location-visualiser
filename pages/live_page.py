@@ -13,6 +13,8 @@ token = open('.mapbox_token').read()
 px.set_mapbox_access_token(token)
 
 
+# Overview Panel
+
 def data_container(title, content):
     return dbc.Container(
         fluid=True,
@@ -51,6 +53,7 @@ def overview_panel():
                 class_name='p-2',
                 style=dict(
                     border='1px solid white',
+                    borderRadius='5px',
                     height='100%'
                 ),
                 children=[
@@ -64,10 +67,12 @@ def overview_panel():
     )
 
 
+# Maps Panel
+
 def create_tabs():
     return dbc.Tabs(
         id='map-tabs',
-        style=dict(border='1px solid white'),
+        style=dict(border='1px solid white', borderRadius='5px 5px 0 0'),
         active_tab='scatter-tab',
         children=[
             dbc.Tab(label='Scatter Map', tab_id='scatter-tab'),
@@ -94,18 +99,27 @@ def update_mapbox_layout(fig):
     )
 
 
-def scatter_map_graph():
+def scatter_map_graph(fig=None):
+    if not fig:
+        fig = update_mapbox_layout(px.scatter_mapbox(lat=[1], lon=[1]))
+
     return dcc.Graph(
         id='scatter-map-graph-live',
-        style=dict(height='100%', border='1px solid white', borderTop='0'),
-        figure=update_mapbox_layout(px.scatter_mapbox(lat=[1], lon=[1])),
+        style=dict(
+            height='100%', border='1px solid white', borderTop='0',
+            borderRadius='0 0 5px 5px'
+        ),
+        figure=fig,
     )
 
 
 def density_map_graph():
     return dcc.Graph(
         id='density-map-graph',
-        style=dict(height='100%', border='1px solid white', borderTop='0'),
+        style=dict(
+            height='100%', border='1px solid white', borderTop='0',
+            borderRadius='0 0 5px 5px'
+        ),
         figure=update_mapbox_layout(px.density_mapbox(lat=[1], lon=[1]), ),
     )
 
@@ -138,6 +152,9 @@ def maps_panel():
             )
         ]
     )
+
+
+# Bar Panel
 
 def create_hour_bar_fig(x, y):
     return px.bar(
@@ -190,12 +207,28 @@ def bar_panel():
     return dbc.Col(
         class_name='p-2',
         style=dict(
+            border='1px solid white',
+            borderRadius='5px',
             height='100%',
-            border='1px solid white'
         ),
         children=hour_bar_graph()
     )
 
+
+# Callback helpers
+
+def empty_scatter_fig():
+    return go.Figure().update_layout(
+        dict(
+            paper_bgcolor='rgba(0,0,0,0)',
+            plot_bgcolor='rgba(0,0,0,0)',
+            xaxis=dict(showgrid=False, showticklabels=False, visible=False),
+            yaxis=dict(showgrid=False, showticklabels=False, visible=False),
+        )
+    )
+
+
+# Callbacks
 
 @callback(
     Output('maps-row', 'children'),
@@ -252,14 +285,7 @@ def update_data(_interval):
                                for name, amount in zip(names, amounts)]
 
     # Emptying Scatter Figure (because dash is weird about scatter_mapbox)
-    empty_scatter_mapbox = go.Figure().update_layout(
-        dict(
-            paper_bgcolor='rgba(0,0,0,0)',
-            plot_bgcolor='rgba(0,0,0,0)',
-            xaxis=dict(showgrid=False, showticklabels=False, visible=False),
-            yaxis=dict(showgrid=False, showticklabels=False, visible=False),
-        )
-    )
+    empty_scatter_mapbox = empty_scatter_fig()
 
     # Updating Density Figure
     density_mapbox = px.density_mapbox(
@@ -275,7 +301,7 @@ def update_data(_interval):
 
     # this sets the color scale
     density_mapbox.update_layout(
-        coloraxis=dict(colorscale=px.colors.sequential.Blackbody_r,),
+        coloraxis=dict(colorscale=px.colors.sequential.Blackbody_r, ),
     )
 
     # hourly bar chart
@@ -301,7 +327,7 @@ def update_data(_interval):
 
     Input('scatter-map-graph-live', 'figure'),
 )
-def update_map(_scatter_map):
+def update_map(_scatter_fig):
     # TODO: this can be optimised but will
     # depend on how we will be getting samples
     lat, lng, date, hour, districts, texts, user_id = sql_library.get_random_sample()
@@ -316,7 +342,7 @@ def update_map(_scatter_map):
         )
     ).dropna()
 
-    scatter_map = px.scatter_mapbox(
+    scatter_fig = px.scatter_mapbox(
         data_frame=df,
         lat='lat',
         lon='lng',
@@ -331,19 +357,9 @@ def update_map(_scatter_map):
         hovertemplate='%{customdata}'
     )
 
-    update_mapbox_layout(scatter_map)
+    update_mapbox_layout(scatter_fig)
 
-    graph = dbc.Spinner(
-        dcc.Graph(
-            figure=scatter_map,
-            style=dict(
-                border='1px solid var(--bs-body-color)',
-                borderTop='0px',
-                height='100%'
-            ),
-            id='scatter-map-graph-live',
-        )
-    )
+    graph = dbc.Spinner(scatter_map_graph(scatter_fig))
     return graph
 
 
