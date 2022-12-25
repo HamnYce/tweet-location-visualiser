@@ -129,11 +129,7 @@ def config_panel():
 def create_tabs():
     return dbc.Tabs(
         id='map-tabs',
-        style=dict(
-            borderLeft='1px solid var(--bs-body-color)',
-            borderTop='1px solid var(--bs-body-color)',
-            borderRight='1px solid var(--bs-body-color)',
-        ),
+        style=dict(border='1px solid white'),
         children=[
             dbc.Tab(label='Scatter Map', tab_id='scatter-tab'),
             dbc.Tab(label='Density Map', tab_id='density-tab')
@@ -162,11 +158,7 @@ def update_mapbox_layout(fig):
 def scatter_map_graph():
     return dcc.Graph(
         id='scatter-mapbox-graph-historical',
-        style=dict(
-            border='1px solid var(--bs-body-color)',
-            borderTop='0',
-            height='100%'
-        ),
+        style=dict(height='100%', border='1px solid white', borderTop='0'),
         figure=update_mapbox_layout(px.scatter_mapbox(lat=[1], lon=[1])),
     )
 
@@ -174,11 +166,7 @@ def scatter_map_graph():
 def density_map_graph():
     return dcc.Graph(
         id='density-mapbox-graph',
-        style=dict(
-            border='1px solid var(--bs-body-color)',
-            borderTop='0',
-            height='100%'
-        ),
+        style=dict(height='100%', border='1px solid white', borderTop='0'),
         figure=update_mapbox_layout(px.density_mapbox(lat=[1], lon=[1])),
     )
 
@@ -192,12 +180,12 @@ def maps_panel():
         style=dict(height='100%', ),
         children=[
             dbc.Row(
-                style=dict(height='45px'),
+                style=dict(height='40px'),
                 children=dbc.Col(children=create_tabs())
             ),
             dbc.Row(
                 id='maps-row-historical',
-                style=dict(height='calc(100% - 45px)'),
+                style=dict(height='calc(100% - 40px)'),
                 children=[
                     dbc.Col(
                         id='scatter-map-col-historical',
@@ -461,7 +449,7 @@ def update_districts(gov_values):
 
     options = [
         dict(label=district, value=district)
-        for district in districts
+        for district in sorted(districts)
     ]
     return options
 
@@ -626,13 +614,12 @@ def update_mapbox_graphs(_fig, date_start, date_end, hours, govs, districts):
     Output('hour-slider', 'value'),  # hour values
     Output('gov-dropdown', 'value'),  # governorante
     Output('district-dropdown', 'value'),  # district
-    Output('clear-button', 'n_clicks'),  # clear all button
 
     Input('clear-button', 'n_clicks'),  # clear all button
 )
 def clear_config(_n_clicks):
     return (sql_library.get_min_date(), sql_library.get_max_date(),
-            [0, 23], None, None, 0)
+            [0, 23], None, None)
 
 
 layout = dbc.Container(
