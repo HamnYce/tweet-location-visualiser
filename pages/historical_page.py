@@ -5,6 +5,7 @@ import dash_bootstrap_components as dbc
 import plotly.express as px
 import plotly.graph_objects as go
 from dash import Input, Output, State, callback, dcc, html
+
 import app_modules.sql_library as sql_library
 
 dash.register_page(__name__, path='/historical')
@@ -21,7 +22,8 @@ def date_picker_row():
     max_date = sql_library.get_max_date()
 
     return dbc.Row(
-        dbc.Col(
+        class_name='py-2',
+        children=dbc.Col(
             children=[
                 html.H5("Date"),
                 dcc.DatePickerRange(
@@ -40,7 +42,8 @@ def date_picker_row():
 
 def hour_slider_row():
     return dbc.Row(
-        dbc.Col(
+        class_name='py-2 my-2',
+        children=dbc.Col(
             children=[
                 html.H5("Hour"),
                 dcc.RangeSlider(
@@ -57,7 +60,8 @@ def hour_slider_row():
 
 def gov_picker_row():
     return dbc.Row(
-        dbc.Col(
+        class_name='py-2',
+        children=dbc.Col(
             children=[
                 html.H5("Governorate"),
                 dcc.Dropdown(
@@ -76,7 +80,8 @@ def gov_picker_row():
 
 def district_picker_row():
     return dbc.Row(
-        dbc.Col(
+        class_name='py-2',
+        children=dbc.Col(
             children=[
                 html.H5("District"),
                 dcc.Dropdown(
@@ -91,6 +96,7 @@ def district_picker_row():
 
 def button_row():
     return dbc.Row(
+        class_name='py-3',
         children=[
             dbc.Col(dbc.Button("Apply", id='apply-button')),
             dbc.Col(dbc.Button("Clear All", id='clear-button'))
@@ -498,7 +504,8 @@ def create_density_trace(custom_text, lat, lng):
         lon=lng,
         name='',
         showlegend=False,
-        colorscale=px.colors.sequential.Blackbody_r,
+        colorscale=px.colors.sequential.OrRd,
+        radius=10
     )
 
 

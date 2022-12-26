@@ -1,21 +1,11 @@
 import sqlalchemy
 from random import randint
 
-# TODO: Normalise Schema
-#   (This will provide a performance boost for get_districts & get_govs
-#   (This method can also be used to group multiple tweets in the same location
-#   and have a count attribute to represent them and a couple of sample tweets.
-#   In theory this should make displaying the scatter graph not very hard and
-#   we might be able to transform it into a bubble graph which can give more
-#   information)
-
-
+# NOTE: friend recommended pypika for SQL statements
 engine = sqlalchemy.create_engine(
-    'postgresql+pg8000://postgres:Megaman1234@localhost:5433/Twitter_Streaming_DB'
+    'postgresql+pg8000://postgres:<password_here>@localhost:5433/Twitter_Streaming_DB'
 )
 
-
-# TODO: Install and refactor with Pypika!
 
 def get_gov_names(districts):
     districts = [dis.replace("'", "''") for dis in districts]

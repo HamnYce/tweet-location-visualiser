@@ -1,6 +1,6 @@
 import dash
 import dash_bootstrap_components as dbc
-from dash import Dash, Input, Output, State, dcc, html
+from dash import Input, Output, State, html
 
 KISR_LOGO = 'assets/imgs/background.png'
 
@@ -69,7 +69,8 @@ app.layout = dbc.Container(
                                                     html.Img(
                                                         src='assets/imgs/logo.png',
                                                         height='60px'),
-                                                    href='https://www.kisr.edu.kw/en/'
+                                                    href='https://www.kisr.edu.kw/en/',
+                                                    target='_blank'
                                                 )
                                             )
                                         ]

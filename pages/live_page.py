@@ -173,22 +173,22 @@ def create_hour_bar_fig(x, y):
             title=dict(text='Hour')
         ),
         font=dict(color='#fff'),
+        # this sets the color
         coloraxis=dict(
-            # this sets the color
             colorscale=px.colors.sequential.Viridis_r,
             colorbar=dict(title=dict(text='hour')),
         ),
-        title=dict(x=0.5, y=0.9, font=dict(size=15)),
+        title=dict(x=0.5, y=0.9, font=dict(size=30)),
     ).update_xaxes(
-        title=dict(
-            text='Hour',
-            font=dict(size=10)
-        ),
-        tickfont=dict(size=10),
-        range=[-0.5, 23.5],
+        title=dict(text='Hour', font=dict(size=17.5)),
+        tickfont=dict(size=15),
+        range=[-1, 24],
         nticks=24,
     ).update_yaxes(
-        title=dict(text='# of Tweets', font=dict(size=10)),
+        title=dict(text='# of Tweets', font=dict(size=17.5)),
+        tickfont=dict(size=15),
+        # to remove decimal values from y axes
+        tickvals=y
     )
 
 
@@ -197,8 +197,8 @@ def hour_bar_graph():
         id='bar-graph',
         style=dict(height='100%'),
         figure=create_hour_bar_fig(
-            [x for x in range(20)],
-            [x * x for x in range(20)]
+            [x for x in range(24)],
+            [x for x in range(24)]
         )
     )
 
@@ -292,6 +292,7 @@ def update_data(_interval):
         data_frame=df,
         lat='lat',
         lon='lng',
+        radius=10
     ).update_traces(
         customdata=df['text'],
         hovertemplate='%{customdata}'
@@ -301,7 +302,7 @@ def update_data(_interval):
 
     # this sets the color scale
     density_mapbox.update_layout(
-        coloraxis=dict(colorscale=px.colors.sequential.Blackbody_r, ),
+        coloraxis=dict(colorscale=px.colors.sequential.OrRd),
     )
 
     # hourly bar chart
