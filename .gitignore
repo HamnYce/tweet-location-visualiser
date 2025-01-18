@@ -1,3 +1,6 @@
-datasets/*
+data/
 .idea/
 .DS_Store
+.env/
+.vscode/
+__pycache__/
