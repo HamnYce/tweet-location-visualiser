@@ -4,3 +4,5 @@ data/
 .env/
 .vscode/
 __pycache__/
+notebooks/
+.mapbox_token
