@@ -1,6 +1,6 @@
 # Geo-Tagged Tweet Visualisation
 
-![Application Screenshot](screenshot.png)
+![Application Screenshot](images/screenshot.png)
 
 This project visualizes geo-tagged tweets using a Dash web application. The application allows users to filter tweets by date and hour, and displays the data on a map and in a table.
 
