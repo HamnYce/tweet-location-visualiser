@@ -9,7 +9,6 @@ df = pd.read_csv('data/timeseries.csv', index_col=None, parse_dates=['date'])
 df = df.drop(columns=['user_name'])
 df['hour'] = df['date'].apply(lambda d: d.hour)
 
-# Dash App
 app = dash.Dash(__name__, external_stylesheets=[
                 dbc.themes.BOOTSTRAP, dbc.themes.DARKLY])
 
@@ -51,7 +50,7 @@ def tweet_data_table(df):
 
 def top_locations_bar(df):
     locations = df['user_location'].value_counts().iloc[:50]
-    fig = px.bar(x=locations.index, y=locations.values, labels={
+    fig = px.bar(title='Top Locations', x=locations.index, y=locations.values, labels={
                  'x': 'location', 'y': 'Number of Tweets'}, template='plotly_dark')
     return fig
 
